@@ -1,0 +1,39 @@
+import pandas as pd
+from surprise import Dataset, Reader, SVD
+from surprise.model_selection import cross_validate
+
+# Load the MovieLens dataset
+url = 'https://raw.githubusercontent.com/sidooms/MovieTweetings/master/latest/ratings.dat'
+ratings = pd.read_csv(url, delimiter='::', header=None, names=['userId', 'movieId', 'rating', 'timestamp'], engine='python')
+
+# Prepare data for Surprise
+reader = Reader(rating_scale=(1, 10))
+data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
+
+# Train the SVD algorithm
+algo = SVD()
+cross_validate(algo, data, measures=['RMSE', 'MAE'], cv=5, verbose=True)
+
+# Fit the algorithm to the data
+trainset = data.build_full_trainset()
+algo.fit(trainset)
+
+# Make a prediction for a specific user and item
+user_id = str(1)  # User ID
+movie_id = str(2)  # Movie ID
+pred = algo.predict(user_id, movie_id)
+print(f'Predicted rating for user {user_id} and movie {movie_id}: {pred.est}')
+
+# Generate top-N recommendations for a user
+def get_top_n_recommendations(user_id, n=10):
+    # Get a list of all movie IDs
+    movie_ids = ratings['movieId'].unique()
+    # Predict ratings for all movies
+    predictions = [algo.predict(user_id, str(movie_id)) for movie_id in movie_ids]
+    # Sort predictions by estimated rating
+    top_n = sorted(predictions, key=lambda x: x.est, reverse=True)[:n]
+    return [(pred.iid, pred.est) for pred in top_n]
+
+# Get top 10 recommendations for user 1
+top_n_recommendations = get_top_n_recommendations(str(1), n=10)
+print("Top 10 recommendations for user 1:", top_n_recommendations
